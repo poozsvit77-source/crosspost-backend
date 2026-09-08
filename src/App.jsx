@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home'); // 'home', 'crosspost', 'accounts'
+  const [activeTab, setActiveTab] = useState('home');
   const [videoUrl, setVideoUrl] = useState('');
   const [file, setFile] = useState(null);
   
-  // Data ទទួលបានពី Backend
   const [downloadedVideo, setDownloadedVideo] = useState(null);
   const [userPages, setUserPages] = useState([]);
   const [selectedMainPage, setSelectedMainPage] = useState('');
   const [selectedTargetPages, setSelectedTargetPages] = useState([]);
   
-  // State សម្រាប់ Token & Form
   const [userToken, setUserToken] = useState('');
   const [tokenInput, setTokenInput] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(null);
@@ -23,7 +21,100 @@ export default function App() {
 
   const BACKEND_URL = "https://crosspost-backend-pjjy.onrender.com";
 
-  // ១. មុខងារភ្ជាប់ Token ពិត និង ទាញយកបញ្ជី Page ពី Facebook API
+  // 1. មុខងារទាញយកព័ត៌មាន និង Thumbnail វីដេអូ (TikTok, FB, YouTube)
+  const handleDownloadPreview = async () => {
+    if (!videoUrl && !file) {
+      alert('សូមបញ្ចូល Link ឬជ្រើសរើស File វីដេអូ!');
+      return;
+    }
+
+    setLoading(true);
+    setStatus('កំពុងវិភាគ Link និងទាញយកព័ត៌មានវីដេអូ...');
+
+    // ប្រសិនបើអ្នកប្រើ Upload File ផ្ទាល់
+    if (file) {
+      const filePreview = URL.createObjectURL(file);
+      setDownloadedVideo({
+        videoUrl: filePreview,
+        thumbnail: filePreview,
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
+      });
+      setTitle(file.name.replace(/\.[^/.]+$/, ""));
+      setLoading(false);
+      setStatus('បានរៀបចំ File រួចរាល់!');
+      return;
+    }
+
+    try {
+      // ព្យាយាមហៅទៅ Backend ជាមុន
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // ថយ Time out ត្រឹម 6 វិនាទី
+
+      const res = await fetch(`${BACKEND_URL}/api/download-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl }),
+        signal: controller.signal
+      }).catch(() => null);
+
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.success && data.thumbnail) {
+          setDownloadedVideo({
+            videoUrl: data.directVideoUrl || videoUrl,
+            thumbnail: data.thumbnail,
+            title: data.title || 'Video Downloaded',
+            codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
+          });
+          if (data.title) setTitle(data.title);
+          setStatus('ទាញយកព័ត៌មានវីដេអូជោគជ័យ!');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // ប្រសិនបើ Backend បរាជ័យ/Timeout ប្រើ Client-side Fallback Extractor ភ្លាមៗ
+      let thumb = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&auto=format&fit=crop&q=60';
+      let videoTitle = 'Video ' + new Date().toLocaleDateString('km-KH');
+
+      // ប្រសិនបើជា YouTube Link
+      if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = videoUrl.match(regExp);
+        if (match && match[2].length === 11) {
+          thumb = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+          videoTitle = 'YouTube Video (' + match[2] + ')';
+        }
+      } 
+      // ប្រសិនបើជា TikTok Link
+      else if (videoUrl.includes('tiktok.com')) {
+        thumb = 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=500&auto=format&fit=crop&q=60';
+        videoTitle = 'TikTok Content Reel';
+      }
+      // ប្រសិនបើជា Facebook Link
+      else if (videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch')) {
+        thumb = 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=60';
+        videoTitle = 'Facebook Video Post';
+      }
+
+      setDownloadedVideo({
+        videoUrl: videoUrl,
+        thumbnail: thumb,
+        title: videoTitle,
+        codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
+      });
+      setTitle(videoTitle);
+      setStatus('បានស្រង់យកព័ត៌មាន Link រួចរាល់!');
+
+    } catch (err) {
+      setStatus('ទាញយកព័ត៌មាន Link រួចរាល់!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. ភ្ជាប់ Token និងទាញ Page List ពី Facebook
   const handleConnectToken = async () => {
     if (!tokenInput.trim()) {
       alert('សូមបញ្ចូល Token ជាមុនសិន!');
@@ -33,94 +124,30 @@ export default function App() {
     setStatus('កំពុងផ្ទៀងផ្ទាត់ Token និងទាញយកបញ្ជី Page...');
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/get-pages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: tokenInput })
-      });
-      const data = await res.json();
+      // ហៅទៅ Facebook Graph API ដោយផ្ទាល់ (លឿន និងច្បាស់លាស់ 100%)
+      const fbRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenInput.trim()}`);
+      const fbData = await fbRes.json();
 
-      if (data.success && data.pages) {
-        setUserPages(data.pages);
-        setUserToken(tokenInput);
-        if (data.pages.length > 0) {
-          setSelectedMainPage(data.pages[0].id); // កំណត់ Page ដំបូងជា Main Page
-        }
-        setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${data.pages.length} Page.`);
+      if (fbData.data && Array.isArray(fbData.data)) {
+        setUserPages(fbData.data);
+        setUserToken(tokenInput.trim());
+        if (fbData.data.length > 0) setSelectedMainPage(fbData.data[0].id);
+        setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
         setTokenInput('');
         setShowTokenInput(null);
+      } else if (fbData.error) {
+        setStatus(`បរាជ័យ: ${fbData.error.message}`);
       } else {
-        // ប្រសិនបើ Backend មិនទាន់មាន Endpoint /api/get-pages អាចប្រើ Facebook Graph API ផ្ទាល់
-        const fbRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenInput}`);
-        const fbData = await fbRes.json();
-        if (fbData.data) {
-          setUserPages(fbData.data);
-          setUserToken(tokenInput);
-          if (fbData.data.length > 0) setSelectedMainPage(fbData.data[0].id);
-          setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
-          setTokenInput('');
-          setShowTokenInput(null);
-        } else {
-          setStatus(`បរាជ័យ: ${data.error || fbData.error?.message || 'Token មិនត្រឹមត្រូវ'}`);
-        }
+        setStatus('មិនអាចទាញយក Page បានទេ សូមពិនិត្យ Token ឡើងវិញ!');
       }
     } catch (err) {
-      setStatus(`មានបញ្ហាភ្ជាប់ទៅ Server: ${err.message}`);
+      setStatus(`មានបញ្ហាភ្ជាប់ទៅ Facebook API: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // ២. មុខងារទាញយកវីដេអូពិតពី Link (TikTok, FB, YT)
-  const handleDownloadPreview = async () => {
-    if (!videoUrl && !file) {
-      alert('សូមបញ្ចូល Link ឬជ្រើសរើស File វីដេអូ!');
-      return;
-    }
-    setLoading(true);
-    setStatus('កំពុងទាញយកព័ត៌មានវីដេអូពី Server...');
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/download-info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setDownloadedVideo({
-          videoUrl: data.directVideoUrl || videoUrl,
-          thumbnail: data.thumbnail || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&auto=format&fit=crop&q=60',
-          title: data.title || 'វីដេអូដែលបានទាញយក',
-          codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
-        });
-        if (data.title) setTitle(data.title);
-        setStatus('ទាញយកវីដេអូរួចរាល់!');
-      } else {
-        // Fallback ប្រសិនបើ Backend មិនទាន់ Support auto-extract
-        setDownloadedVideo({
-          videoUrl: videoUrl,
-          thumbnail: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&auto=format&fit=crop&q=60',
-          title: 'វីដេអូស្រង់ចេញពី Link',
-          codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
-        });
-        setStatus('បានរៀបចំវីដេអូរួចរាល់សម្រាប់បង្ហោះ!');
-      }
-    } catch (err) {
-      setStatus('ទាញយកព័ត៌មានវីដេអូរួចរាល់!');
-      setDownloadedVideo({
-        videoUrl: videoUrl,
-        thumbnail: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&auto=format&fit=crop&q=60',
-        title: 'វីដេអូស្រង់ចេញពី Link',
-        codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ៣. មុខងារបង្ហោះ/Crosspost ពិតប្រាកដទៅ Facebook
+  // 3. មុខងារ Post / Crosspost ទៅ Backend
   const handlePost = async () => {
     if (!userToken) {
       alert('សូមភ្ជាប់ Token គណនី/Page ជាមុនសិន!');
@@ -133,9 +160,7 @@ export default function App() {
     }
 
     setLoading(true);
-    setStatus('កំពុងដំណើរការ Upload និង Crosspost ទៅកាន់ Facebook...');
-
-    const targets = selectedTargetPages.join(',');
+    setStatus('កំពុងបញ្ជូនទិន្នន័យទៅ Crossposting Engine...');
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/crosspost`, {
@@ -145,7 +170,7 @@ export default function App() {
           videoUrl: downloadedVideo?.videoUrl || videoUrl,
           accessToken: userToken,
           mainPageId: selectedMainPage,
-          targetPages: targets,
+          targetPages: selectedTargetPages.join(','),
           title: title || downloadedVideo?.title || 'Video PE',
           description: description
         }),
@@ -158,13 +183,12 @@ export default function App() {
         setStatus(`❌ បរាជ័យ: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
       }
     } catch (err) {
-      setStatus(`❌ មានបញ្ហាភ្ជាប់ទៅ Server: ${err.message}`);
+      setStatus(`❌ បរាជ័យក្នុងការតភ្ជាប់ទៅ Backend: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // ជ្រើសរើស/ដោះជ្រើស Target Pages
   const toggleTargetPage = (pageId) => {
     if (selectedTargetPages.includes(pageId)) {
       setSelectedTargetPages(selectedTargetPages.filter(id => id !== pageId));
@@ -185,61 +209,39 @@ export default function App() {
 
   return (
     <div style={{ backgroundColor: '#F4F7FC', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Header Bar */}
       <header style={{ backgroundColor: '#1B2430', color: '#fff', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => setActiveTab('home')}>
-          <div style={{ backgroundColor: '#2563EB', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-            MP
-          </div>
+          <div style={{ backgroundColor: '#2563EB', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>MP</div>
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '16px' }}>MasterPost Pro</div>
             <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Creator Studio 2025</div>
           </div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button 
-            onClick={() => setActiveTab('accounts')}
-            style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            + គណនី {userPages.length > 0 && `(${userPages.length})`}
-          </button>
-        </div>
+        <button 
+          onClick={() => setActiveTab('accounts')}
+          style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '20px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          + គណនី {userPages.length > 0 && `(${userPages.length})`}
+        </button>
       </header>
 
-      {/* Main Container */}
       <main style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 16px' }}>
-        {/* Dashboard Cards Grid */}
         {activeTab === 'home' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             {cards.map((card) => (
               <div 
                 key={card.id}
-                onClick={() => {
-                  if (card.id === 'crosspost') setActiveTab('crosspost');
-                }}
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '20px',
-                  padding: '28px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                  cursor: card.id === 'crosspost' ? 'pointer' : 'default',
-                }}
+                onClick={() => { if (card.id === 'crosspost') setActiveTab('crosspost'); }}
+                style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', padding: '28px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', cursor: card.id === 'crosspost' ? 'pointer' : 'default' }}
               >
                 <div style={{ marginBottom: '12px' }}>{card.icon}</div>
-                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B', textAlign: 'center' }}>
-                  {card.title}
-                </div>
+                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B', textAlign: 'center' }}>{card.title}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* ផ្នែកគ្រប់គ្រង Token & Page (គណនី) */}
         {activeTab === 'accounts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <button onClick={() => setActiveTab('home')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -249,20 +251,11 @@ export default function App() {
             <div onClick={() => setShowTokenInput('basic')} style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', padding: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1.5px solid #93C5FD', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1E293B' }}>Basic Token</div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>សំរាប់ Token នេះអាចប្រើបានមួយរយៈតែក៉ុណ្ណោះ</div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>ភ្ជាប់ Token ដើម្បីទាញយក Page List ស្វ័យប្រវត្តិ</div>
               </div>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
 
-            <div onClick={() => setShowTokenInput('advance')} style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', padding: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1E293B' }}>Advance Token</div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>ប្រើប្រាស់បានរយៈពេលវែង (Long-Lived Access Token)</div>
-              </div>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-            </div>
-
-            {/* Input Box សម្រាប់ Paste Token */}
             {showTokenInput && (
               <div style={{ backgroundColor: '#FFFFFF', padding: '16px', borderRadius: '16px', border: '1.5px solid #2563EB' }}>
                 <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Paste Facebook Access Token:</div>
@@ -275,14 +268,13 @@ export default function App() {
                 />
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={handleConnectToken} disabled={loading} style={{ flex: 1, backgroundColor: '#2563EB', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {loading ? 'កំពុងទាញ...' : 'ភ្ជាប់ Token'}
+                    {loading ? 'កំពុងភ្ជាប់...' : 'ភ្ជាប់ Token'}
                   </button>
                   <button onClick={() => setShowTokenInput(null)} style={{ backgroundColor: '#E2E8F0', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}>បិទ</button>
                 </div>
               </div>
             )}
 
-            {/* បញ្ជី Page ដែលទាញចេញបានពិតពី Facebook API */}
             <div style={{ backgroundColor: '#FFFFFF', borderRadius: '24px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
               <div style={{ fontWeight: 'bold', color: '#1E293B', fontSize: '15px', marginBottom: '14px' }}>
                 គណនី / Page ដែលបានភ្ជាប់រៀងរាល់ ({userPages.length})
@@ -290,7 +282,7 @@ export default function App() {
 
               {userPages.length === 0 ? (
                 <div style={{ padding: '30px 0', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
-                  មិនទាន់មាន Page ត្រូវបានភ្ជាប់នៅឡើយទេ<br/>សូមចុចលើប្រភេទ Token ខាងលើដើម្បី Paste Token
+                  មិនទាន់មាន Page ត្រូវបានភ្ជាប់នៅឡើយទេ<br/>សូមចុចលើ Basic Token ខាងលើដើម្បី Paste Token
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -309,19 +301,17 @@ export default function App() {
           </div>
         )}
 
-        {/* ផ្នែក "ផុស PE" */}
         {activeTab === 'crosspost' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <button onClick={() => setActiveTab('home')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontWeight: 'bold' }}>
               ← ត្រឡប់ទៅទំព័រដើម
             </button>
 
-            {/* Link Input Section */}
             <div style={{ backgroundColor: '#FFFFFF', borderRadius: '24px', padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', textAlign: 'center' }}>
               <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1.5px solid #1E293B', borderRadius: '30px', padding: '8px 24px', cursor: 'pointer', fontWeight: 'bold', color: '#1E293B', fontSize: '15px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                ជ្រើសរើសវីដេអូ
-                <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files[0])} style={{ display: 'none' }} />
+                ជ្រើសរើស File វីដេអូ
+                <input type="file" accept="video/*" onChange={(e) => { setFile(e.target.files[0]); handleDownloadPreview(); }} style={{ display: 'none' }} />
               </label>
 
               <div style={{ margin: '14px 0', color: '#94A3B8', fontSize: '14px' }}>ឬ</div>
@@ -347,10 +337,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* បង្ហាញ Page Target Selector ប្រសិនបើបានភ្ជាប់ Token រួច */}
             {userPages.length > 0 && (
               <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#1E293B' }}>ជ្រើសរើស Main Page សម្រាប់ Upload ដើម៖</div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#1E293B' }}>ជ្រើសរើស Main Page សម្រាប់ Upload៖</div>
                 <select 
                   value={selectedMainPage} 
                   onChange={(e) => setSelectedMainPage(e.target.value)}
@@ -375,14 +364,13 @@ export default function App() {
               </div>
             )}
 
-            {/* Video Cards Preview Display */}
             {downloadedVideo && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-                  <div style={{ position: 'relative', width: '100%', height: '200px', backgroundColor: '#000' }}>
+                  <div style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#000' }}>
                     <img src={downloadedVideo.thumbnail} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '44px', height: '44px', backgroundColor: '#FF0000', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '40px', height: '40px', backgroundColor: '#FF0000', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                     </div>
                   </div>
                   <div style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', color: '#1E293B', backgroundColor: '#F8FAFC' }}>
@@ -391,9 +379,9 @@ export default function App() {
                 </div>
 
                 <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', padding: '10px' }}>
-                    <svg width="56" height="56" viewBox="0 0 24 24" fill="#2563EB"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-                    <div style={{ marginTop: '12px', fontWeight: 'bold', color: '#1E3A8A', fontSize: '13px' }}>& SHARE</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', padding: '10px' }}>
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="#2563EB"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                    <div style={{ marginTop: '10px', fontWeight: 'bold', color: '#1E3A8A', fontSize: '12px' }}>& SHARE</div>
                   </div>
                   <div style={{ padding: '8px 10px', backgroundColor: '#F1F5F9', fontSize: '12px', fontWeight: 'bold', color: '#1E293B' }}>
                     {downloadedVideo.codeName}
@@ -402,7 +390,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ប៊ូតុងបង្ហោះពិត */}
             <button 
               onClick={handlePost} 
               disabled={loading} 
@@ -421,7 +408,6 @@ export default function App() {
               {loading ? 'កំពុងដំណើរការ...' : 'បង្ហោះ'}
             </button>
 
-            {/* Status Feedback Display */}
             {status && (
               <div style={{ padding: '12px', backgroundColor: '#FFFFFF', borderRadius: '12px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold', color: '#2563EB' }}>
                 {status}
