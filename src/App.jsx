@@ -170,7 +170,7 @@ export default function App() {
     }
   };
 
-  // ៣. មុខងារ Post / Crosspost (ភ្ជាប់ជាមួយ Render Backend)
+  // ៣. មុខងារ Post / Crosspost
   const handlePost = async () => {
     if (!userToken) {
       alert('សូមភ្ជាប់ Token គណនី/Page ជាមុនសិន!');
@@ -190,13 +190,12 @@ export default function App() {
         throw new Error('មិនទាន់បានជ្រើសរើស Main Page ឡើយ!');
       }
 
-      // រក Page Access Token របស់ Page ដែលបានជ្រើសរើស
       const targetPageObj = userPages.find(p => p.id === targetMainPage);
       const activeAccessToken = targetPageObj?.access_token || userToken;
 
-      // ក៖ ករណី Upload File MP4 ផ្ទាល់ពីកុំព្យូទ័រ/ទូរស័ព្ទ
+      // ករណីទី ១៖ Upload រូបភាព/File MP4 ដោយផ្ទាល់
       if (file) {
-        setStatus('កំពុង Upload File ទៅកាន់ Facebook API...');
+        setStatus('កំពុងបញ្ជូន File ទៅ Facebook Graph API...');
         const formData = new FormData();
         formData.append('source', file);
         formData.append('title', title || 'Video Post');
@@ -215,9 +214,9 @@ export default function App() {
           setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
         }
       } 
-      // ខ៖ ករណី បិទភ្ជាប់ Link (YouTube / TikTok / FB) -> ផ្ញើទៅ Render Backend
+      // ករណីទី ២៖ បិទភ្ជាប់ Link (YouTube/TikTok/FB) -> បញ្ជូនទៅ Render Backend
       else if (videoUrl) {
-        setStatus('កំពុងផ្ញើ Link ទៅកាន់ Render Backend ដើម្បីទាញយក Stream...');
+        setStatus('កំពុងផ្ញើ Link ទៅកាន់ Render Backend...');
         const res = await fetch(`${RENDER_BACKEND_URL}/api/post-to-facebook`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -234,7 +233,7 @@ export default function App() {
         if (data.success) {
           setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.data.id}`);
         } else {
-          setStatus(`❌ បរាជ័យ: ${data.error || 'មានបញ្ហាក្នុងការ Upload តាម Render Server'}`);
+          setStatus(`❌ បរាជ័យ: ${data.error || 'មានបញ្ហាក្នុងការ Upload តាម Backend'}`);
         }
       }
     } catch (err) {
