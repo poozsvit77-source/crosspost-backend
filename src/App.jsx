@@ -45,43 +45,62 @@ export default function App() {
     };
   }, []);
 
-  // មុខងារចុច Continue with Facebook (Auto Login)
+  // មុខងារចុច Continue with Facebook (មានប្រព័ន្ធការពារគាំង / Timeout)
   const handleFacebookLogin = () => {
     if (!window.FB) {
-      alert("Facebook SDK មិនទាន់ Load រួចរាល់ឡើយ! សូមរង់ចាំមួយភ្លែត ឬ Refresh ទំព័រនេះឡើងវិញ។");
+      alert("Facebook SDK មិនទាន់ Load រួចរាល់ឡើយ! សូមពិនិត្យមើល Adblocker ឬ Refresh ទំព័រនេះឡើងវិញ។");
       return;
     }
 
     setLoading(true);
     setStatus('កំពុងបើកផ្ទាំង Login Facebook...');
 
-    window.FB.login((response) => {
-      if (response.authResponse) {
-        const userAccessToken = response.authResponse.accessToken;
-        setUserToken(userAccessToken);
-        setStatus('Login ជោគជ័យ! កំពុងទាញយកបញ្ជី Page...');
+    // បង្កើត Timer ការពារការជាប់គាំងលើសពី ១៥វិនាទី
+    const timeoutId = setTimeout(() => {
+      setLoading((prevLoading) => {
+        if (prevLoading) {
+          setStatus('❌ មានបញ្ហា៖ ការភ្ជាប់មានរយៈពេលយូរពេក ឬផ្ទាំង Popup ត្រូវបាន Browser បិទ (Blocked)។');
+          return false;
+        }
+        return false;
+      });
+    }, 15000);
 
-        fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`)
-          .then(res => res.json())
-          .then(fbData => {
-            if (fbData.data && Array.isArray(fbData.data)) {
-              setUserPages(fbData.data);
-              if (fbData.data.length > 0) setSelectedMainPage(fbData.data[0].id);
-              setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
-            } else {
-              setStatus(`បរាជ័យ: ${fbData.error?.message || 'មិនអាចទាញយក Page បានឡើយ'}`);
-            }
-          })
-          .catch(err => setStatus(`មានបញ្ហាទាញយក Page: ${err.message}`))
-          .finally(() => setLoading(false));
+    try {
+      window.FB.login((response) => {
+        clearTimeout(timeoutId);
 
-      } else {
-        setLoading(false);
-        setStatus('អ្នកបានបោះបង់ការ Login!');
-      }
-    }, {
-      scope: 'pages_show_list,pages_read_engagement,pages_manage_posts,publish_video'
-    });
+        if (response && response.authResponse) {
+          const userAccessToken = response.authResponse.accessToken;
+          setUserToken(userAccessToken);
+          setStatus('Login ជោគជ័យ! កំពុងទាញយកបញ្ជី Page...');
+
+          fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`)
+            .then(res => res.json())
+            .then(fbData => {
+              if (fbData.data && Array.isArray(fbData.data)) {
+                setUserPages(fbData.data);
+                if (fbData.data.length > 0) setSelectedMainPage(fbData.data[0].id);
+                setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
+              } else {
+                setStatus(`បរាជ័យ: ${fbData.error?.message || 'មិនអាចទាញយក Page បានឡើយ'}`);
+              }
+            })
+            .catch(err => setStatus(`មានបញ្ហាទាញយក Page: ${err.message}`))
+            .finally(() => setLoading(false));
+
+        } else {
+          setLoading(false);
+          setStatus('អ្នកបានបោះបង់ការ Login ឬ Browser បានបិទ Popup!');
+        }
+      }, {
+        scope: 'pages_show_list,pages_read_engagement,pages_manage_posts,publish_video'
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setStatus(`❌ មានបញ្ហា SDK: ${err.message}`);
+    }
   };
 
   // ១. មុខងារទាញយក / រៀបចំ Preview វីដេអូ
@@ -388,6 +407,12 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {status && (
+              <div style={{ padding: '12px', backgroundColor: '#FFFFFF', borderRadius: '12px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold', color: '#2563EB' }}>
+                {status}
+              </div>
+            )}
           </div>
         )}
 
