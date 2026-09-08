@@ -24,38 +24,57 @@ export default function App() {
 
   // Initialize Facebook SDK Dynamic Loader
   useEffect(() => {
-    if (document.getElementById('facebook-jssdk')) return;
-    const js = document.createElement('script');
-    js.id = 'facebook-jssdk';
-    js.src = "https://connect.facebook.net/en_US/sdk.js";
-    js.async = true;
-    js.defer = true;
-    js.crossOrigin = "anonymous";
-    document.body.appendChild(js);
-
     window.fbAsyncInit = function() {
       if (window.FB) {
         window.FB.init({
           appId      : FB_APP_ID,
           cookie     : true,
           xfbml      : true,
-          version    : 'v18.0'
+          version    : 'v19.0'
         });
       }
     };
+
+    if (!document.getElementById('facebook-jssdk')) {
+      const js = document.createElement('script');
+      js.id = 'facebook-jssdk';
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      js.async = true;
+      js.defer = true;
+      js.crossOrigin = "anonymous";
+      document.body.appendChild(js);
+    } else if (window.FB) {
+      window.FB.init({
+        appId      : FB_APP_ID,
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v19.0'
+      });
+    }
   }, []);
 
-  // មុខងារចុច Continue with Facebook (មានប្រព័ន្ធការពារគាំង / Timeout)
+  // មុខងារចុច Continue with Facebook (ជាមួយការ Force Check FB.init)
   const handleFacebookLogin = () => {
     if (!window.FB) {
       alert("Facebook SDK មិនទាន់ Load រួចរាល់ឡើយ! សូមពិនិត្យមើល Adblocker ឬ Refresh ទំព័រនេះឡើងវិញ។");
       return;
     }
 
+    // ធានាថា FB.init ត្រូវបានហៅប្រាកដប្រជាមុនពេល Login
+    try {
+      window.FB.init({
+        appId      : FB_APP_ID,
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v19.0'
+      });
+    } catch (e) {
+      console.log("FB.init re-trigger:", e);
+    }
+
     setLoading(true);
     setStatus('កំពុងបើកផ្ទាំង Login Facebook...');
 
-    // បង្កើត Timer ការពារការជាប់គាំងលើសពី ១៥វិនាទី
     const timeoutId = setTimeout(() => {
       setLoading((prevLoading) => {
         if (prevLoading) {
@@ -75,7 +94,7 @@ export default function App() {
           setUserToken(userAccessToken);
           setStatus('Login ជោគជ័យ! កំពុងទាញយកបញ្ជី Page...');
 
-          fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`)
+          fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userAccessToken}`)
             .then(res => res.json())
             .then(fbData => {
               if (fbData.data && Array.isArray(fbData.data)) {
@@ -167,7 +186,7 @@ export default function App() {
     setStatus('កំពុងទាញយកបញ្ជី Page...');
 
     try {
-      const fbRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenInput.trim()}`);
+      const fbRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${tokenInput.trim()}`);
       const fbData = await fbRes.json();
 
       if (fbData.data && Array.isArray(fbData.data)) {
@@ -211,7 +230,7 @@ export default function App() {
       const targetPageObj = userPages.find(p => p.id === targetMainPage);
       const activeAccessToken = targetPageObj?.access_token || userToken;
 
-      const postUrl = `https://graph.facebook.com/v18.0/${targetMainPage}/videos`;
+      const postUrl = `https://graph.facebook.com/v19.0/${targetMainPage}/videos`;
 
       let res;
       if (file) {
