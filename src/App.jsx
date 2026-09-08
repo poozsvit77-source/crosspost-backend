@@ -10,26 +10,33 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
 
-  // ជំនួស URL នេះដោយ URL ដែលទទួលបានពី Render ពេលក្រោយ
-  const BACKEND_URL = "http://localhost:5000";
+  // ភ្ជាប់ទៅកាន់ Backend URL លើ Render របស់អ្នក
+  const BACKEND_URL = "https://crosspost-backend-pjjy.onrender.com";
 
   const handleProcess = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setStatus('កំពុងទាញយក និង រៀបចំផុស...');
+    setStatus('កំពុងទាញយកវីដេអូ និង រៀបចំផុសទៅ Facebook...');
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/crosspost`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl, accessToken, mainPageId, targetPages, title, description }),
+        body: JSON.stringify({ 
+          videoUrl, 
+          accessToken, 
+          mainPageId, 
+          targetPages, 
+          title, 
+          description 
+        }),
       });
 
       const data = await res.json();
       if (data.success) {
         setStatus(`ផុសជោគជ័យ! Video ID: ${data.videoId}`);
       } else {
-        setStatus(`បរាជ័យ: ${JSON.stringify(data.error)}`);
+        setStatus(`បរាជ័យ: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
       }
     } catch (err) {
       setStatus(`មានបញ្ហាភ្ជាប់ទៅ Server: ${err.message}`);
@@ -39,38 +46,93 @@ export default function App() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', fontFamily: 'sans-serif' }}>
-      <h2 style={{ textAlign: 'center', color: '#1877f2' }}>Camtool Crossposter</h2>
+    <div style={{ maxWidth: '650px', margin: '40px auto', padding: '24px', fontFamily: 'Arial, sans-serif', border: '1px solid #e1e4e8', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', backgroundColor: '#ffffff' }}>
+      <h2 style={{ color: '#1877f2', textAlign: 'center', marginBottom: '20px' }}>Camtool Video Crossposter</h2>
+      
       <form onSubmit={handleProcess}>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Link វីដេអូ (TikTok, YouTube, FB):</label>
-          <input type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>Link វីដេអូ (TikTok, YouTube, Facebook):</label>
+          <input 
+            type="url" 
+            placeholder="https://www.tiktok.com/@user/video/..." 
+            value={videoUrl} 
+            onChange={(e) => setVideoUrl(e.target.value)} 
+            required 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Page Access Token:</label>
-          <input type="text" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>Page Access Token:</label>
+          <input 
+            type="text" 
+            placeholder="EAA..."
+            value={accessToken} 
+            onChange={(e) => setAccessToken(e.target.value)} 
+            required 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Main Page ID:</label>
-          <input type="text" value={mainPageId} onChange={(e) => setMainPageId(e.target.value)} required style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>Main Page ID (Page ដើម):</label>
+          <input 
+            type="text" 
+            placeholder="1000..."
+            value={mainPageId} 
+            onChange={(e) => setMainPageId(e.target.value)} 
+            required 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Target Page IDs (ប្រើសញ្ញា " , " ខណ្ឌរវាង ID):</label>
-          <input type="text" value={targetPages} onChange={(e) => setTargetPages(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>Target Page IDs (Crosspost) [ប្រើសញ្ញា " , " ខណ្ឌរវាង ID]:</label>
+          <input 
+            type="text" 
+            placeholder="PAGE_ID_1, PAGE_ID_2" 
+            value={targetPages} 
+            onChange={(e) => setTargetPages(e.target.value)} 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>ចំណងជើង:</label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>ចំណងជើង (Title):</label>
+          <input 
+            type="text" 
+            placeholder="ចំណងជើងវីដេអូ..."
+            value={title} 
+            onChange={(e) => setTitle(e.target.value)} 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>ការពិពណ៌នា (Caption):</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3" style={{ width: '100%', padding: '8px', marginTop: '4px' }} />
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>ការពិពណ៌នា (Caption):</label>
+          <textarea 
+            placeholder="ការពិពណ៌នាអំពីវីដេអូ..."
+            value={description} 
+            onChange={(e) => setDescription(e.target.value)} 
+            rows="3" 
+            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+          />
         </div>
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '10px', background: '#1877f2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+
+        <button 
+          type="submit" 
+          disabled={loading} 
+          style={{ width: '100%', padding: '12px', background: loading ? '#888' : '#1877f2', color: '#fff', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}
+        >
           {loading ? 'កំពុងដំណើរការ...' : 'ទាញយក និង ផុសភ្លាមៗ'}
         </button>
       </form>
-      {status && <div style={{ marginTop: '15px', padding: '10px', background: '#f0f2f5' }}>{status}</div>}
+
+      {status && (
+        <div style={{ marginTop: '20px', padding: '12px', background: '#f0f2f5', borderRadius: '6px', borderLeft: '4px solid #1877f2', wordBreak: 'break-word' }}>
+          {status}
+        </div>
+      )}
     </div>
   );
 }
