@@ -1,16 +1,20 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path');
-const YTDLPWrapper = require('yt-dlp-wrap').default;
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import FormData from 'form-data';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import YTDLPWrapper from 'yt-dlp-wrap';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ytDlp = new YTDLPWrapper();
+const ytDlp = new YTDLPWrapper.default();
 
 app.get('/', (req, res) => {
     res.send('Server កំពុងដំណើការយ៉ាងរលូន!');
@@ -33,6 +37,8 @@ app.post('/api/crosspost', async (req, res) => {
             '-o', tempFilePath,
             '-f', 'mp4/best'
         ]);
+
+        console.log("ទាញយកវីដេអូរួចរាល់! កំពុង Upload ទៅ Facebook Graph API...");
 
         const formData = new FormData();
         formData.append('title', title || 'Video Crosspost');
@@ -62,6 +68,7 @@ app.post('/api/crosspost', async (req, res) => {
             fs.unlinkSync(tempFilePath);
         }
         const errorMsg = error.response ? error.response.data : error.message;
+        console.error("Error:", errorMsg);
         res.status(500).json({ success: false, error: errorMsg });
     }
 });
