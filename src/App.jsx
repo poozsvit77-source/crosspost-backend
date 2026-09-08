@@ -53,14 +53,13 @@ export default function App() {
     }
   }, []);
 
-  // មុខងារចុច Continue with Facebook (ជាមួយការ Force Check FB.init)
+  // មុខងារចុច Continue with Facebook
   const handleFacebookLogin = () => {
     if (!window.FB) {
       alert("Facebook SDK មិនទាន់ Load រួចរាល់ឡើយ! សូមពិនិត្យមើល Adblocker ឬ Refresh ទំព័រនេះឡើងវិញ។");
       return;
     }
 
-    // ធានាថា FB.init ត្រូវបានហៅប្រាកដប្រជាមុនពេល Login
     try {
       window.FB.init({
         appId      : FB_APP_ID,
@@ -349,7 +348,7 @@ export default function App() {
                 cursor: loading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justify: 'center',
                 gap: '10px',
                 boxShadow: '0 2px 6px rgba(24, 119, 242, 0.3)'
               }}
