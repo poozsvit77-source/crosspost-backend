@@ -189,7 +189,6 @@ export default function App() {
         throw new Error('មិនទាន់បានជ្រើសរើស Main Page ឡើយ!');
       }
 
-      // រក Page Access Token របស់ Page ដែលបានជ្រើសរើស
       const targetPageObj = userPages.find(p => p.id === targetMainPage);
       const activeAccessToken = targetPageObj?.access_token || userToken;
 
@@ -250,7 +249,7 @@ export default function App() {
     { id: 'soundy', title: 'Soundy AI', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="2" height="6" rx="1" fill="#8B5CF6"/><rect x="7" y="5" width="2" height="14" rx="1" fill="#8B5CF6"/><rect x="11" y="3" width="2" height="18" rx="1" fill="#8B5CF6"/><rect x="15" y="7" width="2" height="10" rx="1" fill="#8B5CF6"/><rect x="19" y="10" width="2" height="4" rx="1" fill="#8B5CF6"/></svg> },
     { id: 'download', title: 'ទាញយកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#3B82F6"/><path d="M12 7V14M12 14L9 11M12 14L15 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M8 17H16" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
     { id: 'carousel', title: 'រូបភាព Carousel', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="12" height="16" rx="2" stroke="#60A5FA" strokeWidth="2"/><circle cx="10" cy="8" r="1" fill="#60A5FA"/><line x1="2" y1="7" x2="2" y2="17" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round"/><line x1="22" y1="7" x2="22" y2="17" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round"/></svg> },
-    { id: 'split', title: 'បំបែកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6 4C4.89543 4 4 4.89543 4 6C4 7.10457 4.89543 8 6 8C7.10457 8 8 7.10457 8 6C8 4.89543 7.10457 4 4 4.89543 7.10457 4 6 4Z" stroke="#1E293B" strokeWidth="2"/><path d="M6 16C4.89543 16 4 16.8954 4 18C4 19.1046 4.89543 20 6 20C7.10457 20 8 19.1046 8 18C8 16.8954 7.10457 16 6 16Z" stroke="#1E293B" strokeWidth="2"/><path d="M7.5 7.5L18 18" stroke="#1E293B" strokeWidth="2" strokeLinecap="round"/><path d="M15 9L18 6" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/></svg> },
+    { id: 'split', title: 'បំបែកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6 4C4.89543 4 4 4.89543 4 6C4 7.10457 4.89543 8 6 8C7.10457 8 8 7.10457 8 6C8 4.89543 7.10457 4 6 4Z" stroke="#1E293B" strokeWidth="2"/><path d="M6 16C4.89543 16 4 16.8954 4 18C4 19.1046 4.89543 20 6 20C7.10457 20 8 19.1046 8 18C8 16.8954 7.10457 16 6 16Z" stroke="#1E293B" strokeWidth="2"/><path d="M7.5 7.5L18 18" stroke="#1E293B" strokeWidth="2" strokeLinecap="round"/><path d="M15 9L18 6" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/></svg> },
     { id: 'about', title: 'អំពីយើង', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#14B8A6"/><path d="M12 11V16" stroke="white" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="8" r="1" fill="white"/></svg> }
   ];
 
