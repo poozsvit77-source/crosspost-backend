@@ -21,110 +21,72 @@ export default function App() {
 
   const BACKEND_URL = "https://crosspost-backend-pjjy.onrender.com";
 
-  // 1. មុខងារទាញយកព័ត៌មាន និង Thumbnail វីដេអូ (TikTok, FB, YouTube)
-  const handleDownloadPreview = async () => {
+  // ១. មុខងារទាញយក / រៀបចំ Preview វីដេអូ
+  const handleDownloadPreview = () => {
     if (!videoUrl && !file) {
       alert('សូមបញ្ចូល Link ឬជ្រើសរើស File វីដេអូ!');
       return;
     }
 
     setLoading(true);
-    setStatus('កំពុងវិភាគ Link និងទាញយកព័ត៌មានវីដេអូ...');
+    setStatus('កំពុងរៀបចំព័ត៌មានវីដេអូ...');
 
-    // ប្រសិនបើអ្នកប្រើ Upload File ផ្ទាល់
+    // ករណី Upload File ផ្ទាល់ពីកុំព្យូទ័រ/ទូរស័ព្ទ
     if (file) {
       const filePreview = URL.createObjectURL(file);
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
       setDownloadedVideo({
         videoUrl: filePreview,
         thumbnail: filePreview,
-        title: file.name.replace(/\.[^/.]+$/, ""),
+        title: nameWithoutExt,
         codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
       });
-      setTitle(file.name.replace(/\.[^/.]+$/, ""));
+      setTitle(nameWithoutExt);
       setLoading(false);
       setStatus('បានរៀបចំ File រួចរាល់!');
       return;
     }
 
-    try {
-      // ព្យាយាមហៅទៅ Backend ជាមុន
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); // ថយ Time out ត្រឹម 6 វិនាទី
+    // ករណីប្រើ Link (Extract Client-side ភ្លាមៗ)
+    let thumb = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&auto=format&fit=crop&q=60';
+    let videoTitle = 'Video Stream Content';
 
-      const res = await fetch(`${BACKEND_URL}/api/download-info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl }),
-        signal: controller.signal
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.success && data.thumbnail) {
-          setDownloadedVideo({
-            videoUrl: data.directVideoUrl || videoUrl,
-            thumbnail: data.thumbnail,
-            title: data.title || 'Video Downloaded',
-            codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
-          });
-          if (data.title) setTitle(data.title);
-          setStatus('ទាញយកព័ត៌មានវីដេអូជោគជ័យ!');
-          setLoading(false);
-          return;
-        }
+    if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = videoUrl.match(regExp);
+      if (match && match[2].length === 11) {
+        thumb = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+        videoTitle = 'YouTube Video (' + match[2] + ')';
       }
-
-      // ប្រសិនបើ Backend បរាជ័យ/Timeout ប្រើ Client-side Fallback Extractor ភ្លាមៗ
-      let thumb = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&auto=format&fit=crop&q=60';
-      let videoTitle = 'Video ' + new Date().toLocaleDateString('km-KH');
-
-      // ប្រសិនបើជា YouTube Link
-      if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = videoUrl.match(regExp);
-        if (match && match[2].length === 11) {
-          thumb = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
-          videoTitle = 'YouTube Video (' + match[2] + ')';
-        }
-      } 
-      // ប្រសិនបើជា TikTok Link
-      else if (videoUrl.includes('tiktok.com')) {
-        thumb = 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=500&auto=format&fit=crop&q=60';
-        videoTitle = 'TikTok Content Reel';
-      }
-      // ប្រសិនបើជា Facebook Link
-      else if (videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch')) {
-        thumb = 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=60';
-        videoTitle = 'Facebook Video Post';
-      }
-
-      setDownloadedVideo({
-        videoUrl: videoUrl,
-        thumbnail: thumb,
-        title: videoTitle,
-        codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
-      });
-      setTitle(videoTitle);
-      setStatus('បានស្រង់យកព័ត៌មាន Link រួចរាល់!');
-
-    } catch (err) {
-      setStatus('ទាញយកព័ត៌មាន Link រួចរាល់!');
-    } finally {
-      setLoading(false);
+    } else if (videoUrl.includes('tiktok.com')) {
+      thumb = 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=500&auto=format&fit=crop&q=60';
+      videoTitle = 'TikTok Reel Video';
+    } else if (videoUrl.includes('facebook.com') || videoUrl.includes('fb.watch')) {
+      thumb = 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=60';
+      videoTitle = 'Facebook Video Post';
     }
+
+    setDownloadedVideo({
+      videoUrl: videoUrl,
+      thumbnail: thumb,
+      title: videoTitle,
+      codeName: 'MSL ' + Math.floor(100 + Math.random() * 900)
+    });
+    setTitle(videoTitle);
+    setLoading(false);
+    setStatus('រៀបចំ Preview វីដេអូរួចរាល់!');
   };
 
-  // 2. ភ្ជាប់ Token និងទាញ Page List ពី Facebook
+  // ២. ភ្ជាប់ Token និងទាញយក Page List
   const handleConnectToken = async () => {
     if (!tokenInput.trim()) {
       alert('សូមបញ្ចូល Token ជាមុនសិន!');
       return;
     }
     setLoading(true);
-    setStatus('កំពុងផ្ទៀងផ្ទាត់ Token និងទាញយកបញ្ជី Page...');
+    setStatus('កំពុងទាញយកបញ្ជី Page...');
 
     try {
-      // ហៅទៅ Facebook Graph API ដោយផ្ទាល់ (លឿន និងច្បាស់លាស់ 100%)
       const fbRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenInput.trim()}`);
       const fbData = await fbRes.json();
 
@@ -135,19 +97,17 @@ export default function App() {
         setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
         setTokenInput('');
         setShowTokenInput(null);
-      } else if (fbData.error) {
-        setStatus(`បរាជ័យ: ${fbData.error.message}`);
       } else {
-        setStatus('មិនអាចទាញយក Page បានទេ សូមពិនិត្យ Token ឡើងវិញ!');
+        setStatus(`បរាជ័យ: ${fbData.error?.message || 'Token មិនត្រឹមត្រូវ'}`);
       }
     } catch (err) {
-      setStatus(`មានបញ្ហាភ្ជាប់ទៅ Facebook API: ${err.message}`);
+      setStatus(`មានបញ្ហាភ្ជាប់ទៅ Facebook: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // 3. មុខងារ Post / Crosspost ទៅ Backend
+  // ៣. មុខងារ Post / Crosspost
   const handlePost = async () => {
     if (!userToken) {
       alert('សូមភ្ជាប់ Token គណនី/Page ជាមុនសិន!');
@@ -171,7 +131,7 @@ export default function App() {
           accessToken: userToken,
           mainPageId: selectedMainPage,
           targetPages: selectedTargetPages.join(','),
-          title: title || downloadedVideo?.title || 'Video PE',
+          title: title || 'Video Post',
           description: description
         }),
       });
@@ -180,10 +140,10 @@ export default function App() {
       if (data.success) {
         setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.videoId}`);
       } else {
-        setStatus(`❌ បរាជ័យ: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
+        setStatus(`❌ បរាជ័យ: ${data.error}`);
       }
     } catch (err) {
-      setStatus(`❌ បរាជ័យក្នុងការតភ្ជាប់ទៅ Backend: ${err.message}`);
+      setStatus(`❌ មានបញ្ហាភ្ជាប់ Server Backend: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -203,7 +163,7 @@ export default function App() {
     { id: 'soundy', title: 'Soundy AI', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="2" height="6" rx="1" fill="#8B5CF6"/><rect x="7" y="5" width="2" height="14" rx="1" fill="#8B5CF6"/><rect x="11" y="3" width="2" height="18" rx="1" fill="#8B5CF6"/><rect x="15" y="7" width="2" height="10" rx="1" fill="#8B5CF6"/><rect x="19" y="10" width="2" height="4" rx="1" fill="#8B5CF6"/></svg> },
     { id: 'download', title: 'ទាញយកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#3B82F6"/><path d="M12 7V14M12 14L9 11M12 14L15 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M8 17H16" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
     { id: 'carousel', title: 'រូបភាព Carousel', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="12" height="16" rx="2" stroke="#60A5FA" strokeWidth="2"/><circle cx="10" cy="8" r="1" fill="#60A5FA"/><line x1="2" y1="7" x2="2" y2="17" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round"/><line x1="22" y1="7" x2="22" y2="17" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round"/></svg> },
-    { id: 'split', title: 'បំបែកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6 4C4.89543 4 4 4.89543 4 6C4 7.10457 4.89543 8 6 8C7.10457 8 8 7.10457 8 6C8 4.89543 7.10457 4 6 4Z" stroke="#1E293B" strokeWidth="2"/><path d="M6 16C4.89543 16 4 16.8954 4 18C4 19.1046 4.89543 20 6 20C7.10457 20 8 19.1046 8 18C8 16.8954 7.10457 16 6 16Z" stroke="#1E293B" strokeWidth="2"/><path d="M7.5 7.5L18 18" stroke="#1E293B" strokeWidth="2" strokeLinecap="round"/><path d="M15 9L18 6" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/></svg> },
+    { id: 'split', title: 'បំបែកវីដេអូ', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M6 4C4.89543 4 4 4.89543 4 6C4 7.10457 4.89543 8 6 8C7.10457 8 8 7.10457 8 6C8 4.89543 7.10457 4 4 4.89543 7.10457 4 6 4Z" stroke="#1E293B" strokeWidth="2"/><path d="M6 16C4.89543 16 4 16.8954 4 18C4 19.1046 4.89543 20 6 20C7.10457 20 8 19.1046 8 18C8 16.8954 7.10457 16 6 16Z" stroke="#1E293B" strokeWidth="2"/><path d="M7.5 7.5L18 18" stroke="#1E293B" strokeWidth="2" strokeLinecap="round"/><path d="M15 9L18 6" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/></svg> },
     { id: 'about', title: 'អំពីយើង', icon: <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#14B8A6"/><path d="M12 11V16" stroke="white" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="8" r="1" fill="white"/></svg> }
   ];
 
@@ -277,7 +237,7 @@ export default function App() {
 
             <div style={{ backgroundColor: '#FFFFFF', borderRadius: '24px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
               <div style={{ fontWeight: 'bold', color: '#1E293B', fontSize: '15px', marginBottom: '14px' }}>
-                គណនី / Page ដែលបានភ្ជាប់រៀងរាល់ ({userPages.length})
+                គណនី / Page ដែលបានភ្ជាប់ ({userPages.length})
               </div>
 
               {userPages.length === 0 ? (
@@ -339,7 +299,7 @@ export default function App() {
 
             {userPages.length > 0 && (
               <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#1E293B' }}>ជ្រើសរើស Main Page សម្រាប់ Upload៖</div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#1E293B' }}>ជ្រើសរើស Main Page សម្រាប់ Upload ដើម៖</div>
                 <select 
                   value={selectedMainPage} 
                   onChange={(e) => setSelectedMainPage(e.target.value)}
