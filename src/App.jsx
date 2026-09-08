@@ -19,8 +19,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
 
-  const BACKEND_URL = "https://crosspost-backend-pjjy.onrender.com";
-
   // ១. មុខងារទាញយក / រៀបចំ Preview វីដេអូ
   const handleDownloadPreview = () => {
     if (!videoUrl && !file) {
@@ -107,43 +105,80 @@ export default function App() {
     }
   };
 
-  // ៣. មុខងារ Post / Crosspost
+  // ៣. មុខងារ Post / Crosspost (Direct ទៅ Facebook Graph API)
   const handlePost = async () => {
     if (!userToken) {
       alert('សូមភ្ជាប់ Token គណនី/Page ជាមុនសិន!');
       setActiveTab('accounts');
       return;
     }
-    if (!downloadedVideo && !videoUrl) {
-      alert('សូមបញ្ចូល Link និងចុចទាញយកវីដេអូជាមុនសិន!');
+    if (!downloadedVideo && !videoUrl && !file) {
+      alert('សូមបញ្ចូល Link ឬជ្រើសរើស File វីដេអូជាមុនសិន!');
       return;
     }
 
     setLoading(true);
-    setStatus('កំពុងបញ្ជូនទិន្នន័យទៅ Crossposting Engine...');
+    setStatus('កំពុងបញ្ជូនទិន្នន័យទៅ Facebook Graph API...');
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/crosspost`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoUrl: downloadedVideo?.videoUrl || videoUrl,
-          accessToken: userToken,
-          mainPageId: selectedMainPage,
-          targetPages: selectedTargetPages.join(','),
-          title: title || 'Video Post',
-          description: description
-        }),
-      });
+      const targetMainPage = selectedMainPage || (userPages.length > 0 ? userPages[0].id : null);
 
-      const data = await res.json();
-      if (data.success) {
-        setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.videoId}`);
+      if (!targetMainPage) {
+        throw new Error('មិនទាន់បានជ្រើសរើស Main Page ឡើយ!');
+      }
+
+      const postUrl = `https://graph.facebook.com/v18.0/${targetMainPage}/videos`;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('source', file);
+        formData.append('title', title || 'Video Post');
+        formData.append('description', description || '');
+        formData.append('access_token', userToken);
+
+        if (selectedTargetPages.length > 0) {
+          formData.append('crosspost_target_page_ids', JSON.stringify(selectedTargetPages));
+        }
+
+        const res = await fetch(postUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.id) {
+          setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.id}`);
+        } else {
+          setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
+        }
       } else {
-        setStatus(`❌ បរាជ័យ: ${data.error}`);
+        const targetVideoUrl = downloadedVideo?.videoUrl || videoUrl;
+        const payload = {
+          file_url: targetVideoUrl,
+          title: title || 'Video Post',
+          description: description || '',
+          access_token: userToken,
+        };
+
+        if (selectedTargetPages.length > 0) {
+          payload.crosspost_target_page_ids = JSON.stringify(selectedTargetPages);
+        }
+
+        const res = await fetch(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (data.id) {
+          setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.id}`);
+        } else {
+          setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
+        }
       }
     } catch (err) {
-      setStatus(`❌ មានបញ្ហាភ្ជាប់ Server Backend: ${err.message}`);
+      setStatus(`❌ មានបញ្ហា៖ ${err.message}`);
     } finally {
       setLoading(false);
     }
