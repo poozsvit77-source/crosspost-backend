@@ -22,8 +22,17 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
 
-  // Initialize Facebook SDK ពេល App ដើរដំបូង
+  // Initialize Facebook SDK Dynamic Loader
   useEffect(() => {
+    if (document.getElementById('facebook-jssdk')) return;
+    const js = document.createElement('script');
+    js.id = 'facebook-jssdk';
+    js.src = "https://connect.facebook.net/en_US/sdk.js";
+    js.async = true;
+    js.defer = true;
+    js.crossOrigin = "anonymous";
+    document.body.appendChild(js);
+
     window.fbAsyncInit = function() {
       if (window.FB) {
         window.FB.init({
@@ -52,7 +61,6 @@ export default function App() {
         setUserToken(userAccessToken);
         setStatus('Login ជោគជ័យ! កំពុងទាញយកបញ្ជី Page...');
 
-        // ទាញយក Pages ដោយស្វ័យប្រវត្តិ
         fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`)
           .then(res => res.json())
           .then(fbData => {
@@ -72,7 +80,6 @@ export default function App() {
         setStatus('អ្នកបានបោះបង់ការ Login!');
       }
     }, {
-      // Scope/Permissions ដែលត្រូវកំណត់
       scope: 'pages_show_list,pages_read_engagement,pages_manage_posts,publish_video'
     });
   };
@@ -131,7 +138,7 @@ export default function App() {
     setStatus('រៀបចំ Preview វីដេអូរួចរាល់!');
   };
 
-  // ២. ភ្ជាប់ Manual Token (ប្រសិនបើប្រើយន្តការ Paste Token ដៃ)
+  // ២. ភ្ជាប់ Manual Token
   const handleConnectToken = async () => {
     if (!tokenInput.trim()) {
       alert('សូមបញ្ចូល Token ជាមុនសិន!');
@@ -161,7 +168,7 @@ export default function App() {
     }
   };
 
-  // ៣. មុខងារ Post / Crosspost (Direct ទៅ Facebook Graph API)
+  // ៣. មុខងារ Post / Crosspost
   const handlePost = async () => {
     if (!userToken) {
       alert('សូមភ្ជាប់ Token គណនី/Page ជាមុនសិន!');
@@ -178,60 +185,49 @@ export default function App() {
 
     try {
       const targetMainPage = selectedMainPage || (userPages.length > 0 ? userPages[0].id : null);
-
       if (!targetMainPage) {
         throw new Error('មិនទាន់បានជ្រើសរើស Main Page ឡើយ!');
       }
 
+      // រក Page Access Token របស់ Page ដែលបានជ្រើសរើស
+      const targetPageObj = userPages.find(p => p.id === targetMainPage);
+      const activeAccessToken = targetPageObj?.access_token || userToken;
+
       const postUrl = `https://graph.facebook.com/v18.0/${targetMainPage}/videos`;
 
+      let res;
       if (file) {
         const formData = new FormData();
         formData.append('source', file);
         formData.append('title', title || 'Video Post');
         formData.append('description', description || '');
-        formData.append('access_token', userToken);
+        formData.append('access_token', activeAccessToken);
 
-        if (selectedTargetPages.length > 0) {
-          formData.append('crosspost_target_page_ids', JSON.stringify(selectedTargetPages));
-        }
-
-        const res = await fetch(postUrl, {
+        res = await fetch(postUrl, {
           method: 'POST',
           body: formData
         });
-
-        const data = await res.json();
-        if (data.id) {
-          setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.id}`);
-        } else {
-          setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
-        }
       } else {
         const targetVideoUrl = downloadedVideo?.videoUrl || videoUrl;
         const payload = {
           file_url: targetVideoUrl,
           title: title || 'Video Post',
           description: description || '',
-          access_token: userToken,
+          access_token: activeAccessToken,
         };
 
-        if (selectedTargetPages.length > 0) {
-          payload.crosspost_target_page_ids = JSON.stringify(selectedTargetPages);
-        }
-
-        const res = await fetch(postUrl, {
+        res = await fetch(postUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+      }
 
-        const data = await res.json();
-        if (data.id) {
-          setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.id}`);
-        } else {
-          setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
-        }
+      const data = await res.json();
+      if (data.id) {
+        setStatus(`🎉 បង្ហោះជោគជ័យ! Video ID: ${data.id}`);
+      } else {
+        setStatus(`❌ បរាជ័យ: ${data.error?.message || 'Facebook API Error'}`);
       }
     } catch (err) {
       setStatus(`❌ មានបញ្ហា៖ ${err.message}`);
@@ -301,7 +297,6 @@ export default function App() {
 
             <h2 style={{ textAlign: 'center', margin: '0', color: '#1E293B', fontSize: '20px', fontWeight: 'bold' }}>បន្ថែមគណនីហ្វេសប៊ុក</h2>
 
-            {/* ប៊ូតុង Continue with Facebook */}
             <button 
               onClick={handleFacebookLogin}
               disabled={loading}
@@ -328,7 +323,6 @@ export default function App() {
 
             <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>ឬ</div>
 
-            {/* ល tùyជ្រើសរើស Token Cards ផ្សេងៗ */}
             <div onClick={() => setShowTokenInput('basic')} style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B' }}>Basic Token</div>
