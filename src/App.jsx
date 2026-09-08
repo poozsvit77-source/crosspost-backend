@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Meta App ID របស់អ្នកពី Meta Developer Dashboard
+const FB_APP_ID = "2280988049423779";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -19,6 +22,61 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
 
+  // Initialize Facebook SDK ពេល App ដើរដំបូង
+  useEffect(() => {
+    window.fbAsyncInit = function() {
+      if (window.FB) {
+        window.FB.init({
+          appId      : FB_APP_ID,
+          cookie     : true,
+          xfbml      : true,
+          version    : 'v18.0'
+        });
+      }
+    };
+  }, []);
+
+  // មុខងារចុច Continue with Facebook (Auto Login)
+  const handleFacebookLogin = () => {
+    if (!window.FB) {
+      alert("Facebook SDK មិនទាន់ Load រួចរាល់ឡើយ! សូមរង់ចាំមួយភ្លែត ឬ Refresh ទំព័រនេះឡើងវិញ។");
+      return;
+    }
+
+    setLoading(true);
+    setStatus('កំពុងបើកផ្ទាំង Login Facebook...');
+
+    window.FB.login((response) => {
+      if (response.authResponse) {
+        const userAccessToken = response.authResponse.accessToken;
+        setUserToken(userAccessToken);
+        setStatus('Login ជោគជ័យ! កំពុងទាញយកបញ្ជី Page...');
+
+        // ទាញយក Pages ដោយស្វ័យប្រវត្តិ
+        fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`)
+          .then(res => res.json())
+          .then(fbData => {
+            if (fbData.data && Array.isArray(fbData.data)) {
+              setUserPages(fbData.data);
+              if (fbData.data.length > 0) setSelectedMainPage(fbData.data[0].id);
+              setStatus(`ភ្ជាប់ជោគជ័យ! រកឃើញ ${fbData.data.length} Page.`);
+            } else {
+              setStatus(`បរាជ័យ: ${fbData.error?.message || 'មិនអាចទាញយក Page បានឡើយ'}`);
+            }
+          })
+          .catch(err => setStatus(`មានបញ្ហាទាញយក Page: ${err.message}`))
+          .finally(() => setLoading(false));
+
+      } else {
+        setLoading(false);
+        setStatus('អ្នកបានបោះបង់ការ Login!');
+      }
+    }, {
+      // Scope/Permissions ដែលត្រូវកំណត់
+      scope: 'pages_show_list,pages_read_engagement,pages_manage_posts,publish_video'
+    });
+  };
+
   // ១. មុខងារទាញយក / រៀបចំ Preview វីដេអូ
   const handleDownloadPreview = () => {
     if (!videoUrl && !file) {
@@ -29,7 +87,6 @@ export default function App() {
     setLoading(true);
     setStatus('កំពុងរៀបចំព័ត៌មានវីដេអូ...');
 
-    // ករណី Upload File ផ្ទាល់ពីកុំព្យូទ័រ/ទូរស័ព្ទ
     if (file) {
       const filePreview = URL.createObjectURL(file);
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
@@ -45,7 +102,6 @@ export default function App() {
       return;
     }
 
-    // ករណីប្រើ Link (Extract Client-side ភ្លាមៗ)
     let thumb = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=500&auto=format&fit=crop&q=60';
     let videoTitle = 'Video Stream Content';
 
@@ -75,7 +131,7 @@ export default function App() {
     setStatus('រៀបចំ Preview វីដេអូរួចរាល់!');
   };
 
-  // ២. ភ្ជាប់ Token និងទាញយក Page List
+  // ២. ភ្ជាប់ Manual Token (ប្រសិនបើប្រើយន្តការ Paste Token ដៃ)
   const handleConnectToken = async () => {
     if (!tokenInput.trim()) {
       alert('សូមបញ្ចូល Token ជាមុនសិន!');
@@ -209,7 +265,7 @@ export default function App() {
           <div style={{ backgroundColor: '#2563EB', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>MP</div>
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '16px' }}>MasterPost Pro</div>
-            <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Creator Studio 2025</div>
+            <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Auto Video Poster</div>
           </div>
         </div>
         
@@ -240,23 +296,69 @@ export default function App() {
         {activeTab === 'accounts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <button onClick={() => setActiveTab('home')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#2563EB', cursor: 'pointer', fontWeight: 'bold' }}>
-              ← ត្រឡប់ទៅទំព័រដើម
+              ← Back
             </button>
 
-            <div onClick={() => setShowTokenInput('basic')} style={{ backgroundColor: '#FFFFFF', borderRadius: '20px', padding: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1.5px solid #93C5FD', cursor: 'pointer' }}>
+            <h2 style={{ textAlign: 'center', margin: '0', color: '#1E293B', fontSize: '20px', fontWeight: 'bold' }}>បន្ថែមគណនីហ្វេសប៊ុក</h2>
+
+            {/* ប៊ូតុង Continue with Facebook */}
+            <button 
+              onClick={handleFacebookLogin}
+              disabled={loading}
+              style={{
+                width: '100%',
+                backgroundColor: '#1877F2',
+                color: '#FFFFFF',
+                padding: '14px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                boxShadow: '0 2px 6px rgba(24, 119, 242, 0.3)'
+              }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              {loading ? 'កំពុងភ្ជាប់...' : 'Continue with Facebook'}
+            </button>
+
+            <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>ឬ</div>
+
+            {/* ល tùyជ្រើសរើស Token Cards ផ្សេងៗ */}
+            <div onClick={() => setShowTokenInput('basic')} style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
               <div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1E293B' }}>Basic Token</div>
-                <div style={{ fontSize: '12px', color: '#94A3B8' }}>ភ្ជាប់ Token ដើម្បីទាញយក Page List ស្វ័យប្រវត្តិ</div>
+                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B' }}>Basic Token</div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>សំរាប់ Token នេះអាចប្រើបានមួយរយះតែប៉ុណ្ណោះ</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+
+            <div onClick={() => setShowTokenInput('advance')} style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B' }}>Advance Token</div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>សំរាប់ Token នេះអាចប្រើបានប្រហែល ៣ខែ</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+
+            <div onClick={() => setShowTokenInput('easy')} style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1E293B' }}>Easy Token</div>
+                <div style={{ fontSize: '12px', color: '#94A3B8' }}>សំរាប់ Token នេះអាចប្រើបានប្រហែល ៣ខែ</div>
               </div>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
 
             {showTokenInput && (
               <div style={{ backgroundColor: '#FFFFFF', padding: '16px', borderRadius: '16px', border: '1.5px solid #2563EB' }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Paste Facebook Access Token:</div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Paste Access Token:</div>
                 <input 
                   type="text" 
-                  placeholder="Paste Token (EAA...)" 
+                  placeholder="Paste Access Token ទីនេះ..." 
                   value={tokenInput} 
                   onChange={(e) => setTokenInput(e.target.value)}
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #CBD5E1', boxSizing: 'border-box', marginBottom: '10px' }}
@@ -277,7 +379,7 @@ export default function App() {
 
               {userPages.length === 0 ? (
                 <div style={{ padding: '30px 0', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
-                  មិនទាន់មាន Page ត្រូវបានភ្ជាប់នៅឡើយទេ<br/>សូមចុចលើ Basic Token ខាងលើដើម្បី Paste Token
+                  មិនទាន់មាន Page ត្រូវបានភ្ជាប់នៅឡើយទេ<br/>សូមចុចលើ Continue with Facebook ឬប្រភេទ Token ខាងលើ
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
